@@ -36,7 +36,7 @@ log.info('Starting up')
 # Change directory & import the pipeline settings
 #sys.path.append('/Users/atreyopal/Desktop/pipeline/source/')
 sys.path.append('/data/scripts/DataReduction/source/')
-from drp.pipeline import PipeLine
+from darepype.drp.pipeline import PipeLine
 
 today = datetime.date.today()
 year = str(today.year)
@@ -60,7 +60,7 @@ def execute():
     # (like the ones on the stars base) is specified for the pipeline.  The pipeline
     # will look in the folder and find any of the sub-folders that contain the FITS images.
     # It will then automatically take the files it finds and run them through the pipeline.
-    print sys.argv
+    print(sys.argv)
     if len(sys.argv) > 1:
         # Load the specified directory -- entered as the second argument in the terminal command
         topdirectory = str(sys.argv[1])
@@ -109,7 +109,7 @@ def execute():
         try:
             #pass
             result = pipe(imagelist)
-        except Exception, e:
+        except Exception as e:
             log.warning("Pipeline for object = %s returned Error" % entry)
             log.warning('Found Error = %s' % repr(e))
             print('Found Error = %s' % repr(e))
@@ -117,23 +117,23 @@ def execute():
                 trb = traceback.format_exc().split('\n').reverse()
                 for tr in trb:
                     log.warning(tr)
-            except Exception, f:
+            except Exception as f:
                 log.warning('Unable to print traceback')
                 print(traceback.format_exc(),trb)
 
 
 # Run the setup code in an error with reporting traceback
-#execute()
+# execute()
 try:
     #pass
     execute()
-except Exception, e:
+except Exception as e:
     log.error('Found Error = %s' % repr(e))
     try:
         trb = traceback.format_exc().split('\n').reverse()
         for tr in trb:
             log.error(tr)
-    except Exception, f:
+    except Exception as f:
         log.warning('Unable to print traceback')
         print(traceback.format_exc(),trb)
     raise e

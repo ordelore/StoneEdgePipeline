@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """ 
     Pipestep BiasDarkFlat
-
     This module defines the pipeline step to calibrate data files w.r.t. bias, 
     dark and flat frames. This pipestep works with pipedata object lists called 
     by StepLoadAux and removes bad pixels from the final RGB image. This is very 
