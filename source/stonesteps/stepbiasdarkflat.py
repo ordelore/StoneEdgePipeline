@@ -8,7 +8,7 @@
     important to smoothen the background texture of the image and the final image
     looks far more clearer once calibration is done.
     
-    Author: Atreyo Pal
+    Authors: Atreyo Pal, Lorenzo Orders
 """
 import os # os library
 import sys # sys library
@@ -190,14 +190,15 @@ class StepBiasDarkFlat(StepLoadAux, StepParent):
         # Use the min_value to replace any values in the flat
         flat_corrected = image.copy()
         use_flat = flat
+        
         flat_mean_val = use_flat.data.mean()
 
         # Normalize the flat.
         flat_mean = flat_mean_val * use_flat.unit
-        flat_normed = use_flat.divide(flat_mean)
+        flat_normed = use_flat.data / flat_mean
 
         # divide through the flat
-        flat_corrected.data = image.divide(flat_normed)
+        flat_corrected.data = image.data / flat_normed
 
         self.log.debug('Corrected flat.')
         return flat_corrected
@@ -280,30 +281,53 @@ class StepBiasDarkFlat(StepLoadAux, StepParent):
                 if self.flatkeyvalues[keyind] != self.datain.getheadval(self.flatfitkeys[keyind]):
                     self.log.warn('New data has different FITS key value for keyword %s' %
                                   self.flatfitkeys[keyind])
-        #convert self.datain to CCD Data object
+        # in the config file, set the 'intermediate' variable to either true or false to enable
+        # saving of intermediate steps
+        saveIntermediateSteps = self.config['biasdarkflat']['intermediate']
+        self.dataout = DataFits(config=self.datain.config)
         
+        #convert self.datain to CCD Data object
         image = CCDData(self.datain.image, unit='adu')
         image.header = self.datain.header
-        #subtract bias from image
-        image = self.subtract_bias(image, self.bias)
-        #subtract dark from image
-        image = self.subtract_dark(image, self.dark, scale=True, exposure_time='EXPTIME', exposure_unit=u.second)
-        #apply flat correction to image
-        image = self.flat_correct(image, self.flat)
-        # copy calibrated image into self.dataout - make sure self.dataout is a pipedata object
-        self.dataout = DataFits(config=self.datain.config)
-        self.dataout.image = image.data
-        self.dataout.header = self.datain.header
         
-        self.dataout.filename = self.datain.filename
-        ### Finish - cleanup
-        # Update DATATYPE
-        self.dataout.setheadval('DATATYPE','IMAGE')
-        # Add bias, dark files to History
-        self.dataout.setheadval('HISTORY','BIAS: %s' % self.biasname)
-        self.dataout.setheadval('HISTORY','DARK: %s' % self.darkname)
-        self.dataout.setheadval('HISTORY','FLAT: %s' % self.flatname)
+        # subtract bias from image
+        image = self.subtract_bias(image, self.bias)
+        if (saveIntermediateSteps == "true"):
+            self.dataout.imageset(image.data, imagename="BIAS")
+            # self.dataout.setheadval('DATATYPE','IMAGE', dataname="BIAS")
+            self.dataout.setheadval('HISTORY','BIAS: %s' % self.biasname, dataname="BIAS")
+        
+        # subtract dark from image
+        image = self.subtract_dark(image, self.dark, scale=True, exposure_time='EXPTIME', exposure_unit=u.second)
+        if (saveIntermediateSteps == "true"):
+            self.dataout.imageset(image.data, imagename="DARK")
+            # self.dataout.setheadval('DATATYPE','IMAGE', dataname="DARK")
+            self.dataout.setheadval('HISTORY','BIAS: %s' % self.biasname, dataname="DARK")
+            self.dataout.setheadval('HISTORY','DARK: %s' % self.darkname, dataname="DARK")
+        
+        # apply flat correction to image
+        image = self.flat_correct(image, self.flat)
 
+        # if separating bias,dark,flat steps , save the flat-corrected portion into its own hdu
+        if (saveIntermediateSteps == "true"):
+            self.dataout.imageset(image.data, imagename="FLAT")
+            # self.dataout.setheadval('DATATYPE','IMAGE', dataname="FLAT")
+            self.dataout.setheadval('HISTORY','BIAS: %s' % self.biasname, dataname="FLAT")
+            self.dataout.setheadval('HISTORY','DARK: %s' % self.darkname, dataname="FLAT")
+            self.dataout.setheadval('HISTORY','FLAT: %s' % self.flatname, dataname="FLAT")
+        else:
+            # copy calibrated image into self.dataout
+            self.dataout.image = image.data
+            self.dataout.header = self.datain.header
+            ### Finish - cleanup
+            # Update DATATYPE
+            self.dataout.setheadval('DATATYPE','IMAGE')
+            # Add bias, dark files to History
+            self.dataout.setheadval('HISTORY','BIAS: %s' % self.biasname)
+            self.dataout.setheadval('HISTORY','DARK: %s' % self.darkname)
+            self.dataout.setheadval('HISTORY','FLAT: %s' % self.flatname)
+
+        self.dataout.filename = self.datain.filename
     def loadbias(self):
         """ Loads the bias information for the instrument settings
             described in the header of self.datain.
@@ -476,6 +500,7 @@ if __name__ == '__main__':
     StepBiasDarkFlat().execute()
     
 '''HISTORY:
+2020-07-26 - Saving intermediate BDF steps and removal of CCDProc code - Lorenzo Orders
 2018-08-02 - Bias/Dark correction of darks/flats moved to stepmasterbias/dark/flat - Matt Merz
 07/28/2017 - Script created by Atreyo Pal
 '''
